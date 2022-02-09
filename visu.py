@@ -6,6 +6,8 @@ import seaborn as sns
 # Page de visualisation des données
 def app(df):
     st.title("Visualisation des données")
+    
+    st.warning("Warning à enlever plus tard")
 
     st.subheader('Le jeu de données')
 
