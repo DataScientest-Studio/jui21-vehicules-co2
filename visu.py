@@ -28,3 +28,9 @@ def app(df):
     fig, ax = plt.subplots()
     sns.scatterplot(x='puiss_max', y='co2', data = df)
     st.pyplot(fig)
+    
+    st.title('Nouveau graphe à supprimer')
+    st.write("Relation entre la puissance maximale et l'émission de CO2 :")
+    fig, ax = plt.subplots()
+    sns.scatterplot(x='puiss_max', y='co2', data = df)
+    st.pyplot(fig)
