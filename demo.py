@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from urllib.request import urlopen
+from bs4 import BeautifulSoup
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LinearRegression, ElasticNetCV
@@ -32,11 +34,54 @@ def preprocess_data_train(df):
     return preprocessor, X_train_scaled, y_train
 
 # Fonction pour pré-processer les données de test
-@st.cache
-def preprocess_data_test(preprocessor, X_test):
+# @st.cache
+def preprocess_data_test(choix_page, preprocessor):
+
+    # URL de la page technique saisie par l'utilisateur
+    page_LC = urlopen(choix_page)
+    soup = BeautifulSoup(page_LC, 'html.parser')
+
+    # Récupération de la masse
+    masse = []
+    for element in soup.select('.colR+ .b0 span~ span'):
+        masse.append(element.text.strip().split()[0]) 
+
+    # Récupération du co2
+    co2 = []
+    for element in soup.select('.colR:nth-child(10) span~ span'):
+        co2.append(element.text.strip().split()[0])
+
+    # Récupération de la conso mixte
+    conso_mixte = []
+    for element in soup.select('.colL:nth-child(9) span:nth-child(6)'):
+        conso_mixte.append(element.text.strip().split()[0])
+        
+    # Récupération de la puissance
+    puissance = []
+    for element in soup.select('span+ .clear span'):
+        puissance.append(element.text.strip().split()[0])    
+        
+    # Récupération de la marque
+    marque = []
+    for element in soup.select('.lH35'):
+        marque.append(element.text.strip().split()[2].upper())    # Upper > pour passer en majuscule
+
+    # Création du DataFrame
+    X_test_user = pd.DataFrame(list(zip(marque,puissance,conso_mixte,masse,co2)), columns=["lib_mrq","puiss_max","conso_mixte","masse_ordma_min","co2"])
+    
+    # On vérifie qu'il ne manque pas de données dans les variables récupérées
+    for col1,col2,col3,col4,col5 in zip(X_test_user['lib_mrq'].values,X_test_user['puiss_max'].values,X_test_user['conso_mixte'].values,X_test_user['masse_ordma_min'].values,X_test_user['co2'].values) : 
+        if (col1=='NC') | (col2=='NC') | (col3=='NC') | (col4=='NC') | (col5=='NC') :
+            X_test_user = pd.DataFrame()
+        else :
+            X_test_user = X_test_user.astype({"puiss_max":'float64', "conso_mixte":'float64', 'co2' :'float64', 'masse_ordma_min' : 'int64' })
+ 
 
     # Transformations des données grâce au ColumnTransformer
-    X_test_scaled = preprocessor.transform(X_test)
+    if not X_test_user.empty :
+        X_test_scaled = preprocessor.transform(X_test_user)
+    else :
+        X_test_scaled = np.array([])
     
     return X_test_scaled
 
@@ -60,38 +105,42 @@ def fit_model(option_modele, X_train, y_train):
 
 
 # Page de démonstration
-def app(df):
+def app(df, data_path):
     st.title("Démonstration")
+    st.markdown("""
+    Sur cette page, vous pouvez saisir l'URL d'une page du site internet "LaCentrale" correspondant à la fiche technique d'un véhicule. 
+    Vous pouvez également choisir un modèle de Machine Learning.
+    \nSi toutes les données nécessaires sont disponibles dans la fiche technique, le modèle sélectionné effectuera une prédiction de 
+    l'émission de CO2 émise par le véhicule choisi.
+    """)
 
-    # Suppression des variables de mesure de pollution, de la puissance administrative 98, des consommations urb et exurb et de la masse max
-    df_reduit = df.drop(['co_typ_1', 'nox', 'ptcl', 'puiss_admin_98', 'conso_urb', 'conso_exurb', 'masse_ordma_max'], axis = 1)
+    # Suppression des variables de mesure de pollution, de la puissance administrative 98, des consommations urb et exurb, de la masse max et du type de carrosserie et gamme
+    df_reduit = df.drop(['co_typ_1', 'nox', 'ptcl', 'puiss_admin_98', 'conso_urb', 'conso_exurb', 'masse_ordma_max', 'Carrosserie', 'gamme'], axis = 1)
 
-    # Choix des variables par l'utilisateur
-    st.subheader('Choix des variables')
-    option_marque = st.selectbox('Sélectionnez la marque du véhicule :', df['lib_mrq'].unique(), 0)
-    option_carrosserie = st.selectbox('Sélectionnez le type de carrosserie du véhicule :', df['Carrosserie'].unique(), 0)
-    option_gamme = st.selectbox('Sélectionnez la gamme du véhicule :', df['gamme'].unique(), 0)
-    option_puiss = st.slider('Sélectionnez la puissance du véhicule :', int(df['puiss_max'].min()), int(df['puiss_max'].max()), 147)
-    option_conso = st.slider('Sélectionnez la consommation moyenne du véhicule :', int(df['conso_mixte'].min()), int(df['conso_mixte'].max()), 8)
-    option_masse = st.slider('Sélectionnez la masse à vide du véhicule en kg :', int(df['masse_ordma_min'].min()), int(df['masse_ordma_min'].max()), 1505)
+    # Choix de la page à scrapper par l'utilisateur
+    st.subheader('Choix du véhicule')
+    choix_page = st.text_input("Saisir l'URL de la page à scrapper sur le site de la Centrale :",
+    'https://www.lacentrale.fr/fiche-technique-voiture-citroen-berlingo-ii+1.6+e_hdi+90+airdream+collection+etg6-2014.html')
 
     # Choix du modèle par l'utilisateur
     st.subheader('Choix du modèle')
-    option_modele = st.selectbox('Sélectionnez le modèle à tester :', ('Régression linéaire', 'Elastic Net', 'Arbre de décision'))
+    option_modele = st.selectbox('Sélectionner le modèle à tester :', ('Régression linéaire', 'Elastic Net', 'Arbre de décision'))
 
     # Pré-processing des données d'entraînement
     preprocessor, X_train_scaled, y_train = preprocess_data_train(df_reduit)
 
     # Pré-processing des données de test
-    liste_col = df_reduit.columns.to_series().drop('co2')
-    liste_val = np.array([option_marque, option_puiss, option_conso, option_masse, option_carrosserie, option_gamme])
-    X_test_user = pd.DataFrame([liste_val], columns = liste_col)
-    X_test_scaled = preprocess_data_test(preprocessor, X_test_user)
+    X_test_scaled = preprocess_data_test(choix_page, preprocessor)
 
-    # Création et entraînement du modèle
-    clf = fit_model(option_modele, X_train_scaled, y_train)
+    # On fait tourner le modèle si les données récupérées sont ok
+    if X_test_scaled.size != 0 :
+        # Création et entraînement du modèle
+        clf = fit_model(option_modele, X_train_scaled, y_train)
 
-    # Prédiction du modèle
-    st.subheader('Résultat prédit par le modèle')
-    y_pred = clf.predict(X_test_scaled)
-    st.write("L'émission de CO2 prédite par ce modèle pour ce type de véhicule est : ", round(y_pred.item(),2))
+        # Prédiction du modèle
+        st.subheader('Résultat prédit par le modèle')
+        y_pred = clf.predict(X_test_scaled)
+        st.write("L'émission de CO2 prédite par ce modèle pour ce type de véhicule est : ", round(y_pred.item(),2))
+    
+    else :
+        st.warning("Il manque des données sur cette page ! Impossible de réaliser une prédiction.")
