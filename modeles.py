@@ -1,4 +1,6 @@
 import streamlit as st
+import matplotlib.pyplot as plt
+import os
 
 # Page de présentation des modèles et des résultats
 def app(df, data_path):
@@ -28,4 +30,33 @@ def app(df, data_path):
     couche dense avec un unique neurone et une fonction d’activation de type linéaire.  
     \nL’optimiseur utilisé est Adam et la fonction de perte est la MSE. Nous entraînons 
     notre réseau sur 30 époques avec une taille de batch de 64.
+    """)
+
+    st.title("Performance des modèles")
+
+    st.subheader('Comparaison des R² et RMSE')
+    st.markdown("""
+    Pour mesurer la performance de tous nos modèles et pouvoir les comparer entre eux,
+    nous avons utilisé deux métriques :
+    * le coefficient de détermination R², afin d’avoir une idée de la proportion de variance expliquée par le modèle, et savoir si l’ajustement du modèle est de bonne qualité.
+    * la RMSE, qui représente l'écart type des résidus produits par notre modèle et peut être interprétée dans les mêmes unités que notre cible, l’émission de CO2. Nous avons préféré cette mesure à la MAE afin de bien prendre en compte les valeurs aberrantes pendant le processus d'ajustement.
+    """)
+    st.markdown("""
+    Voici ci-dessous les résultats obtenus sur le jeu de test pour les différents modèles :
+    """)
+    resultats = plt.imread(os.path.join(data_path , "Perfo_modeles.JPG"))
+    st.image(resultats)
+
+    st.subheader('Comparaison des émissions de CO2 réelles et prédites')
+    st.markdown("""
+    Une autre façon de mesurer la performance des modèles est de visualiser l'émission de CO2 prédite en fonction 
+    de l'émission réelle. Plus on obtient de points le long de la droite y = x (représentée en rouge ci-dessous) et 
+    plus le modèle est performant.
+    \nVoici le graphique réalisé à partir des prédictions du modèle Random Forest :
+    """)
+    comparaison = plt.imread(os.path.join(data_path , "Comparaison_CO2_reel_predit.JPG"))
+    st.image(comparaison)
+    st.markdown("""
+    On constate que les points se trouvent majoritairement le long de la ligne y = x, 
+    ce qui confirme les bons résultats obtenus par le calcul des R² et RMSE.
     """)

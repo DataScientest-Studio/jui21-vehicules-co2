@@ -34,7 +34,6 @@ def preprocess_data_train(df):
     return preprocessor, X_train_scaled, y_train
 
 # Fonction pour pré-processer les données de test
-# @st.cache
 def preprocess_data_test(choix_page, preprocessor):
 
     # URL de la page technique saisie par l'utilisateur
@@ -83,7 +82,7 @@ def preprocess_data_test(choix_page, preprocessor):
     else :
         X_test_scaled = np.array([])
     
-    return X_test_scaled
+    return X_test_scaled, co2
 
 
 # Fonction pour créer et entraîner le modèle choisi
@@ -130,7 +129,7 @@ def app(df, data_path):
     preprocessor, X_train_scaled, y_train = preprocess_data_train(df_reduit)
 
     # Pré-processing des données de test
-    X_test_scaled = preprocess_data_test(choix_page, preprocessor)
+    X_test_scaled, co2_test = preprocess_data_test(choix_page, preprocessor)
 
     # On fait tourner le modèle si les données récupérées sont ok
     if X_test_scaled.size != 0 :
@@ -140,7 +139,8 @@ def app(df, data_path):
         # Prédiction du modèle
         st.subheader('Résultat prédit par le modèle')
         y_pred = clf.predict(X_test_scaled)
-        st.write("L'émission de CO2 prédite par ce modèle pour ce type de véhicule est : ", round(y_pred.item(),2))
+        st.write("L'émission de CO2 prédite par ce modèle pour ce type de véhicule est :", round(y_pred.item(),2), "g/km.")
+        st.write("L'émission de CO2 réelle (donnée sur la fiche technique du site \"LaCentrale\" ) est :", co2_test[0], "g/km.")
     
     else :
         st.warning("Il manque des données sur cette page ! Impossible de réaliser une prédiction.")
