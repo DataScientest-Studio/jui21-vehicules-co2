@@ -7,6 +7,8 @@ from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LinearRegression, ElasticNetCV
 from sklearn.tree import DecisionTreeRegressor
+from PIL import Image
+import urllib.request
 
 # Fonction pour pré-processer les données d'entraînement
 @st.cache
@@ -34,11 +36,7 @@ def preprocess_data_train(df):
     return preprocessor, X_train_scaled, y_train
 
 # Fonction pour pré-processer les données de test
-def preprocess_data_test(choix_page, preprocessor):
-
-    # URL de la page technique saisie par l'utilisateur
-    page_LC = urlopen(choix_page)
-    soup = BeautifulSoup(page_LC, 'html.parser')
+def preprocess_data_test(soup, preprocessor):
 
     # Récupération de la masse
     masse = []
@@ -107,7 +105,7 @@ def fit_model(option_modele, X_train, y_train):
 def app(df, data_path):
     st.title("Démonstration")
     st.markdown("""
-    Sur cette page, vous pouvez saisir l'URL d'une page du site internet "LaCentrale" correspondant à la fiche technique d'un véhicule. 
+    Sur cette page, vous pouvez saisir l'URL d'une page du site internet "LaCentrale" correspondant à la fiche technique d'un véhicule.
     Vous pouvez également choisir un modèle de Machine Learning.
     \nSi toutes les données nécessaires sont disponibles dans la fiche technique, le modèle sélectionné effectuera une prédiction de 
     l'émission de CO2 émise par le véhicule choisi.
@@ -118,18 +116,38 @@ def app(df, data_path):
 
     # Choix de la page à scrapper par l'utilisateur
     st.subheader('Choix du véhicule')
-    choix_page = st.text_input("Saisir l'URL de la page à scrapper sur le site de la Centrale :",
+    choix_page = st.text_input("Saisir l'URL de la page à scrapper sur le site de la Centrale\
+    (attention à bien choisir une page contenant les caractéristiques techniques d'un véhicule) :",
     'https://www.lacentrale.fr/fiche-technique-voiture-citroen-berlingo-ii+1.6+e_hdi+90+airdream+collection+etg6-2014.html')
+    # URL de la page technique saisie par l'utilisateur
+    page_LC = urlopen(choix_page)
+    soup = BeautifulSoup(page_LC, 'html.parser')
 
     # Choix du modèle par l'utilisateur
-    st.subheader('Choix du modèle')
+    st.subheader('Choix du modèle de Machine Learning')
     option_modele = st.selectbox('Sélectionner le modèle à tester :', ('Régression linéaire', 'Elastic Net', 'Arbre de décision'))
 
     # Pré-processing des données d'entraînement
     preprocessor, X_train_scaled, y_train = preprocess_data_train(df_reduit)
 
     # Pré-processing des données de test
-    X_test_scaled, co2_test = preprocess_data_test(choix_page, preprocessor)
+    X_test_scaled, co2_test = preprocess_data_test(soup, preprocessor)
+
+    # Affichage des résultats
+    st.subheader('Résultat prédit par le modèle')
+    st.write("Vous avez choici ce véhicule :")
+
+    # Récupération de l'image du véhicule
+    image_tags = soup.find_all('img', class_='noBold italic block max100 imgModelCom' )
+    links=[]
+    for image_tag in image_tags :
+        links.append(image_tag['src'])
+    urllib.request.urlretrieve(links[0], ".jpg")
+    # Affichage
+    dimensions = (260, 370)
+    i = Image.open('.jpg')
+    i.thumbnail(dimensions)
+    st.image(i)
 
     # On fait tourner le modèle si les données récupérées sont ok
     if X_test_scaled.size != 0 :
@@ -137,7 +155,6 @@ def app(df, data_path):
         clf = fit_model(option_modele, X_train_scaled, y_train)
 
         # Prédiction du modèle
-        st.subheader('Résultat prédit par le modèle')
         y_pred = clf.predict(X_test_scaled)
         st.write("L'émission de CO2 prédite par ce modèle pour ce type de véhicule est :", round(y_pred.item(),2), "g/km.")
         st.write("L'émission de CO2 réelle (donnée sur la fiche technique du site \"LaCentrale\" ) est :", co2_test[0], "g/km.")
