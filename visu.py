@@ -4,7 +4,7 @@ from bokeh.plotting import figure
 from bokeh.models.tools import HoverTool
 from bokeh.models import ColumnDataSource, BasicTicker, ColorBar, LinearColorMapper
 from bokeh.palettes import Magma256
-from bokeh.transform import transform
+from bokeh.transform import transform, jitter
 
 # Page de visualisation des données
 def app(df, data_path):
@@ -81,7 +81,7 @@ def app(df, data_path):
                             ("marque", "@lib_mrq")])
     # Graphique
     p1 = figure(plot_width=600, plot_height=350)     
-    p1.circle(x='puiss_max', y='co2', source = source1, alpha=0.2 )
+    p1.circle(x='puiss_max', y='co2', source = source1, alpha=0.2, color = (255, 187, 87, 0.6))
     p1.xaxis.axis_label = "Puissance maximale (kW)"              
     p1.yaxis.axis_label = "CO2 (g/km)"              
     p1.add_tools(h1)
@@ -96,7 +96,7 @@ def app(df, data_path):
                             ("marque", "@lib_mrq")])
     # Graphique
     p2 = figure(plot_width=600, plot_height=350)     
-    p2.circle(x='conso_exurb', y='co2', source = source2, alpha=0.2)    
+    p2.circle(x='conso_exurb', y='co2', source = source2, alpha=0.2, color = (113, 188, 255, 0.6))    
     p2.xaxis.axis_label = "Consommation extra-urbaine (L)"              
     p2.yaxis.axis_label = "CO2 (g/km)"
     p2.add_tools(h2)
@@ -111,7 +111,7 @@ def app(df, data_path):
                             ("marque", "@lib_mrq")])
     # Graphique
     p3 = figure(plot_width=600, plot_height=350)     
-    p3.circle(x='masse_ordma_min', y='co2', source = source3, alpha=0.2)    
+    p3.circle(x='masse_ordma_min', y='co2', source = source3, alpha=0.2, color = (103, 235, 134, 0.6))    
     p3.xaxis.axis_label = "Masse à vide (kg)"              
     p3.yaxis.axis_label = "CO2 (g/km)"              
     p3.add_tools(h3)
@@ -127,7 +127,7 @@ def app(df, data_path):
                             ("marque", "@lib_mrq")])
     # Graphique
     p4 = figure(plot_width=600, plot_height=350, x_range = liste_gammes)
-    p4.circle(x='gamme', y='co2',  source = source4, alpha=0.2)
+    p4.circle(x=jitter('gamme', width=0.6, range=p4.x_range), y='co2',  source = source4, alpha=0.2, color = (253, 85, 57, 0.6))
     p4.xaxis.axis_label = "Gamme"              
     p4.yaxis.axis_label = "CO2 (g/km)"              
     p4.add_tools(h4)
