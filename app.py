@@ -44,7 +44,7 @@ st.sidebar.title('Emissions de CO2 des véhicules homologués')
 # Choix de la page
 selection = st.sidebar.radio("Menu", list(PAGES.keys()))
 page = PAGES[selection]
-page.app(df, data_path)
+page.app(df, current_folder)
 st.sidebar.markdown("""<hr style="height:2px;color:#333;background-color:#333;" /> """, unsafe_allow_html=True)
 st.sidebar.markdown("Auteurs :")
 st.sidebar.markdown("Jian Hu  \nBruno Huart  \nEmilie Pottiez")

@@ -7,7 +7,7 @@ from bokeh.palettes import Magma256
 from bokeh.transform import transform, jitter
 
 # Page de visualisation des données
-def app(df, data_path):
+def app(df, dir_path):
     st.title("Visualisation des données")
     st.markdown("""
     Cette page présente quelques visualisations choisies du jeu de données afin de mieux appréhender le lien 
