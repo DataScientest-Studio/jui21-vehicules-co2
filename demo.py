@@ -1,42 +1,73 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import os
 from urllib.request import urlopen
 from bs4 import BeautifulSoup
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LinearRegression, ElasticNetCV
 from sklearn.tree import DecisionTreeRegressor
 from PIL import Image
 import urllib.request
+from joblib import load
 
-# Fonction pour pré-processer les données d'entraînement
-@st.cache
-def preprocess_data_train(df):
 
-    # Séparation des variables explicatives dans un dataframe X et de la variable cible dans y
-    y_train = df['co2']
-    features = df.drop('co2', axis = 1)
+# Fonction pour pré-processer les données d'entraînement et entraîner le modèle (non utilisée car on charge directement le modèle)
+# def preprocess_fit(df, option_modele):
 
-    # OneHotEncoding pour les colonnes catégorielles
-    col_cat = features.select_dtypes(include=['object', 'category']).columns.tolist()
-    ohe = OneHotEncoder(sparse=False)
+#    # Suppression des variables de mesure de pollution, de la puissance administrative 98, des consommations urb et exurb, de la masse max et du type de carrosserie et gamme
+#     df_reduit = df.drop(['co_typ_1', 'nox', 'ptcl', 'puiss_admin_98', 'conso_urb', 'conso_exurb', 'masse_ordma_max', 'Carrosserie', 'gamme'], axis = 1)
 
-    # MinMaxScaling pour les colonnes numériques
-    col_num = features.select_dtypes(include=['number']).columns.tolist()
-    scaler = MinMaxScaler()
+#     # Séparation des variables explicatives dans un dataframe X et de la variable cible dans y
+#     target = df_reduit['co2']
+#     features = df_reduit.drop('co2', axis = 1)
 
-    # Application aux données avec un ColumnTransformer
-    preprocessor = ColumnTransformer([
-        ('cat', ohe, col_cat),
-        ('num', scaler, col_num)
-    ])
-    X_train_scaled = preprocessor.fit_transform(features)
+#     # OneHotEncoding pour les colonnes catégorielles
+#     col_cat = features.select_dtypes(include=['object', 'category']).columns.tolist()
+#     ohe = OneHotEncoder(sparse=False)
+
+#     # MinMaxScaling pour les colonnes numériques
+#     col_num = features.select_dtypes(include=['number']).columns.tolist()
+#     scaler = MinMaxScaler()
+
+#     # Application aux données avec un ColumnTransformer
+#     preprocessor = ColumnTransformer([
+#         ('cat', ohe, col_cat),
+#         ('num', scaler, col_num)
+#     ])
     
-    return preprocessor, X_train_scaled, y_train
+#     # Création du modèle choisi
+#     if(option_modele == 'Régression linéaire') :
+#         model = LinearRegression()
+#     elif(option_modele == 'Elastic Net') :
+#         model = ElasticNetCV(l1_ratio = (0.1, 0.5, 0.8, 0.9, 0.99), alphas=(0.001, 0.01, 0.1, 0.5, 1.0), cv = 10)
+#     else :
+#         model = DecisionTreeRegressor()
 
-# Fonction pour pré-processer les données de test
-def preprocess_data_test(soup, preprocessor):
+#     # Création de la Pipeline
+#     pipeline = Pipeline(steps = [('preprocessing', preprocessor),
+#                                 ('regressor', model)])
+
+#     return pipeline
+
+
+# Fonction pour scrapper les données de test
+def scrapping_data_test(choix_page):
+
+    # URL de la page technique saisie par l'utilisateur
+    page_LC = urlopen(choix_page)
+    soup = BeautifulSoup(page_LC, 'html.parser')
+
+    # Récupération de l'image du véhicule
+    image_tags = soup.find_all('img', class_='noBold italic block max100 imgModelCom' )
+    links=[]
+    for image_tag in image_tags :
+        links.append(image_tag['src'])
+    urllib.request.urlretrieve(links[0], ".jpg")
+    dimensions = (260, 370)
+    i = Image.open('.jpg')
+    i.thumbnail(dimensions)
 
     # Récupération de la masse
     masse = []
@@ -72,37 +103,12 @@ def preprocess_data_test(soup, preprocessor):
             X_test_user = pd.DataFrame()
         else :
             X_test_user = X_test_user.astype({"puiss_max":'float64', "conso_mixte":'float64', 'co2' :'float64', 'masse_ordma_min' : 'int64' })
- 
-
-    # Transformations des données grâce au ColumnTransformer
-    if not X_test_user.empty :
-        X_test_scaled = preprocessor.transform(X_test_user)
-    else :
-        X_test_scaled = np.array([])
     
-    return X_test_scaled, co2
-
-
-# Fonction pour créer et entraîner le modèle choisi
-@st.cache
-def fit_model(option_modele, X_train, y_train):
-
-    # Création du modèle choisi
-    if(option_modele == 'Régression linéaire') :
-        clf = LinearRegression()
-    elif(option_modele == 'Elastic Net') :
-        clf = ElasticNetCV(l1_ratio = (0.1, 0.5, 0.8, 0.9, 0.99), alphas=(0.001, 0.01, 0.1, 0.5, 1.0), cv = 10)
-    else :
-        clf = DecisionTreeRegressor()
-
-    # Entraînement du modèle
-    clf.fit(X_train, y_train)
-
-    return clf
+    return X_test_user, co2, i
 
 
 # Page de démonstration
-def app(df, data_path):
+def app(df, dir_path):
     st.title("Démonstration")
     st.markdown("""
     Sur cette page, vous pouvez saisir l'URL d'une page du site internet "LaCentrale" correspondant à la fiche technique d'un véhicule.
@@ -111,51 +117,40 @@ def app(df, data_path):
     l'émission de CO2 émise par le véhicule choisi.
     """)
 
-    # Suppression des variables de mesure de pollution, de la puissance administrative 98, des consommations urb et exurb, de la masse max et du type de carrosserie et gamme
-    df_reduit = df.drop(['co_typ_1', 'nox', 'ptcl', 'puiss_admin_98', 'conso_urb', 'conso_exurb', 'masse_ordma_max', 'Carrosserie', 'gamme'], axis = 1)
-
     # Choix de la page à scrapper par l'utilisateur
     st.subheader('Choix du véhicule')
     choix_page = st.text_input("Saisir l'URL de la page à scrapper sur le site de la Centrale\
     (attention à bien choisir une page contenant les caractéristiques techniques d'un véhicule) :",
     'https://www.lacentrale.fr/fiche-technique-voiture-citroen-berlingo-ii+1.6+e_hdi+90+airdream+collection+etg6-2014.html')
-    # URL de la page technique saisie par l'utilisateur
-    page_LC = urlopen(choix_page)
-    soup = BeautifulSoup(page_LC, 'html.parser')
-
+    
     # Choix du modèle par l'utilisateur
     st.subheader('Choix du modèle de Machine Learning')
     option_modele = st.selectbox('Sélectionner le modèle à tester :', ('Régression linéaire', 'Elastic Net', 'Arbre de décision'))
 
-    # Pré-processing des données d'entraînement
-    preprocessor, X_train_scaled, y_train = preprocess_data_train(df_reduit)
+    # Pré-processing des données et entraînement du modèle (non utilisé car on charge directement le modèle)
+    # model = preprocess_fit_modele(df, option_modele)
 
-    # Pré-processing des données de test
-    X_test_scaled, co2_test = preprocess_data_test(soup, preprocessor)
+    # Chargement du modèle choisi
+    if(option_modele == 'Régression linéaire') :
+        model = load(os.path.join(dir_path , 'modeles\linear_regression.joblib') )
+    elif(option_modele == 'Elastic Net') :
+        model = load(os.path.join(dir_path , 'modeles\elastic_net.joblib'))
+    else :
+        model = load(os.path.join(dir_path , 'modeles\decision_tree_regressor.joblib'))
 
-    # Affichage des résultats
+    # Récupération des données de test par scrapping
+    X_test_user, co2_test, image_vehicule = scrapping_data_test(choix_page)
+
+    # Affichage de la photo du véhicule et des résultats
     st.subheader('Résultat prédit par le modèle')
-    st.write("Vous avez choici ce véhicule :")
+    st.write("Vous avez choisi ce véhicule :")
+    st.image(image_vehicule)
 
-    # Récupération de l'image du véhicule
-    image_tags = soup.find_all('img', class_='noBold italic block max100 imgModelCom' )
-    links=[]
-    for image_tag in image_tags :
-        links.append(image_tag['src'])
-    urllib.request.urlretrieve(links[0], ".jpg")
-    # Affichage
-    dimensions = (260, 370)
-    i = Image.open('.jpg')
-    i.thumbnail(dimensions)
-    st.image(i)
-
-    # On fait tourner le modèle si les données récupérées sont ok
-    if X_test_scaled.size != 0 :
-        # Création et entraînement du modèle
-        clf = fit_model(option_modele, X_train_scaled, y_train)
-
+    # On effectue la prédiction si les données récupérées sont ok
+    if not X_test_user.empty :
+       
         # Prédiction du modèle
-        y_pred = clf.predict(X_test_scaled)
+        y_pred = model.predict(X_test_user)
         st.write("L'émission de CO2 prédite par ce modèle pour ce type de véhicule est :", round(y_pred.item(),2), "g/km.")
         st.write("L'émission de CO2 réelle (donnée sur la fiche technique du site \"LaCentrale\" ) est :", co2_test[0], "g/km.")
     

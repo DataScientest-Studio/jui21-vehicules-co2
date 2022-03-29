@@ -3,11 +3,11 @@ import matplotlib.pyplot as plt
 import os
 
 # Page d'introduction
-def app(df, data_path):
+def app(df, dir_path):
     st.title("Prédiction des émissions de CO2 par les véhicules homologués en France")
     
     # Affichage du logo du pojet
-    logo = plt.imread(os.path.join(data_path , "image_voiture.jfif"))
+    logo = plt.imread(os.path.join(dir_path , "data\image_voiture.jfif"))
     col1, col2, col3 = st.columns([1,2,1])
     with col1:
         st.write("")
